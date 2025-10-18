@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Ticket;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
@@ -25,5 +26,11 @@ class DatabaseSeeder extends Seeder
             ['name' => 'admin', 'password' => bcrypt('password')]
         );
         $manager->assignRole($managerRole);
+
+        Ticket::factory()->count(10)->create()->each(function (Ticket $t) {
+            $t->addMediaFromString('demo content')
+                ->usingFileName('readme.txt')
+                ->toMediaCollection('attachments');
+        });
     }
 }
