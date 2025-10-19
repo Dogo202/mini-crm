@@ -40,21 +40,21 @@ make init
 
 Логин: test@test.com, Пароль: password
 
-###Встраивание виджета
+### Встраивание виджета
 
 ```html
 <iframe src="http://localhost:8080/widget" width="100%" height="560" style="border:0;"></iframe>
 ```
 
-###Тесты
+### Тесты
 ```nashorn js
 make test
 ```
-####Ожидаем
+#### Ожидаем
 can create ticket → 201
 daily limit → 429
 
-###Документация API (Swagger)
+### Документация API (Swagger)
 Откройте docs/openapi.yaml тут: https://editor.swagger.io
 
 
