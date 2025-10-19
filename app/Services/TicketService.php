@@ -22,7 +22,7 @@ class TicketService
     {
         // Ограничение: 1 заявка за 24 часа на email/телефон
         if ($this->tickets->existsRecentForEmailOrPhone($payload['email'], $payload['phone'], 24)) {
-            throw new DomainException('Вы уже отправляли заявку в последние 24 часа.', 429);
+            throw new \App\Exceptions\DomainException('Вы уже отправляли заявку в последние 24 часа.', 429);
         }
 
         return DB::transaction(function () use ($payload) {

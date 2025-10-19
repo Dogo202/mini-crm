@@ -1,9 +1,10 @@
 <?php
 
-
 namespace App\Exceptions;
 
 use Throwable;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -11,15 +12,14 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 class Handler extends ExceptionHandler
 {
     /**
-     * Список исключений, которые не репортим в логи (по желанию).
-     * Можешь убрать DomainException отсюда, если хочешь логировать доменные ошибки.
+     * Исключения, которые можно не логировать.
      */
     protected $dontReport = [
-        \App\Exceptions\DomainException::class,
+        DomainException::class,
     ];
 
     /**
-     * Поля, которые не будут флэшиться обратно в форму при валидации.
+     * Поля, не возвращаемые назад в форму при валидации.
      */
     protected $dontFlash = [
         'current_password',
@@ -27,45 +27,60 @@ class Handler extends ExceptionHandler
         'password_confirmation',
     ];
 
+    /**
+     * Регистрируем рендеры/репорты для исключений.
+     */
     public function register(): void
     {
-        // Место для reportable-хуков, если понадобятся.
-        // $this->reportable(function (Throwable $e) {});
-    }
+        // Доменные ошибки (лимит 24ч и т.п.) — ВСЕГДА JSON
+        $this->renderable(function (\App\Exceptions\DomainException $e, $request) {
+            return response()->json(['message' => $e->getMessage()], 429);
+        });
 
-    /**
-     * Единая точка рендера исключений.
-     * Для API — возвращаем JSON с понятными статусами.
-     */
-    public function render($request, Throwable $e)
-    {
-        if ($request->expectsJson()) {
-
-            // Наши доменные исключения (например, лимит 1 заявка/24ч)
-            if ($e instanceof DomainException) {
-                $status = (int)$e->getCode();
-                if ($status < 400 || $status > 599) {
-                    $status = 400;
-                }
-                return response()->json([
-                    'message' => $e->getMessage(),
-                ], $status);
-            }
-
-            // Ошибки валидации — красиво возвращаем ошибки полей
-            if ($e instanceof ValidationException) {
+        // Ошибки валидации — JSON для API/AJAX
+        $this->renderable(function (ValidationException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*') || $request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'message' => 'Validation failed.',
-                    'errors' => $e->errors(),
+                    'errors'  => $e->errors(),
                 ], 422);
             }
+        });
 
-            // Стандартные HTTP-исключения (404/403 и т.п.)
-            if ($e instanceof HttpExceptionInterface) {
-                return response()->json([
-                    'message' => $e->getMessage() ?: 'HTTP error',
-                ], $e->getStatusCode(), $e->getHeaders());
+        // Модель не найдена — JSON для API
+        $this->renderable(function (ModelNotFoundException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'Resource not found.'], 404);
             }
+        });
+
+        // Не аутентифицирован — JSON для API
+        $this->renderable(function (AuthenticationException $e, $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+        });
+
+        // Прочие HTTP-исключения — JSON для API
+        $this->renderable(function (Throwable $e, $request) {
+            if ($e instanceof HttpExceptionInterface && ($request->expectsJson() || $request->is('api/*'))) {
+                return response()->json(
+                    ['message' => $e->getMessage() ?: 'HTTP error'],
+                    $e->getStatusCode(),
+                    $e->getHeaders()
+                );
+            }
+        });
+    }
+
+    public function render($request, Throwable $e)
+    {
+        if ($e instanceof DomainException) {
+            $status = (int) $e->getCode();
+            if ($status < 400 || $status > 599) {
+                $status = 400;
+            }
+            return response()->json(['message' => $e->getMessage()], $status);
         }
 
         return parent::render($request, $e);

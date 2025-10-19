@@ -19,12 +19,18 @@ class TicketController extends Controller
 
     public function store(StoreTicketRequest $request)
     {
-        $ticket = $this->service->create($request->validated() + [
-                'attachments' => $request->file('attachments', [])
-            ]);
+        try {
+            $ticket = $this->service->create($request->validated() + [
+                    'attachments' => $request->file('attachments', [])
+                ]);
 
-        return (new TicketResource($ticket))
-            ->response()
-            ->setStatusCode(201);
+            return (new TicketResource($ticket))
+                ->response()
+                ->setStatusCode(201);
+
+        } catch (\App\Exceptions\DomainException $e) {
+            // Гарантированно отдаём корректный статус/JSON при лимите 24ч
+            return response()->json(['message' => $e->getMessage()], 429);
+        }
     }
 }

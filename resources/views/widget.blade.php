@@ -33,19 +33,40 @@
 
 <script>
     const form = document.getElementById('f'), ok = document.getElementById('ok'), err = document.getElementById('err');
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         ok.style.display = err.style.display = 'none';
         const fd = new FormData(form);
+
         try {
-            const res = await fetch('/api/tickets', { method: 'POST', body: fd });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Ошибка отправки');
-            ok.textContent = 'Заявка отправлена! ID: ' + data.data.id;
+            const res = await fetch('/api/tickets', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',             // 👈 важно: просим JSON
+                    'X-Requested-With': 'XMLHttpRequest',    // 👈 помогает Laravel понимать, что это AJAX
+                },
+                body: fd
+            });
+
+            const text = await res.text();               // читаем как текст
+            let data = null;
+            try { data = JSON.parse(text); } catch (e) {} // пробуем распарсить в JSON
+
+            if (!res.ok) {
+                const message = (data && (data.message || (data.errors && Object.values(data.errors).flat()[0])))
+                    || text
+                    || 'Ошибка отправки';
+                throw new Error(message);
+            }
+
+            // OK
+            const id = data?.data?.id ?? data?.id ?? '—';
+            ok.textContent = 'Заявка отправлена! ID: ' + id;
             ok.style.display = 'block';
             form.reset();
         } catch (ex) {
-            err.textContent = ex.message;
+            err.textContent = ex.message || 'Ошибка';
             err.style.display = 'block';
         }
     });

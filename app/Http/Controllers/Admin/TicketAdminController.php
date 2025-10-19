@@ -15,7 +15,6 @@ class TicketAdminController extends Controller
 
     public function __construct(TicketRepositoryInterface $tickets)
     {
-        $this->middleware(['auth','role:manager']);
         $this->tickets = $tickets;
     }
 
