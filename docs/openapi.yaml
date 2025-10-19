@@ -1,0 +1,33 @@
+openapi: 3.0.3
+info:
+  title: Mini CRM API
+  version: 1.0.0
+paths:
+  /api/tickets:
+    post:
+      summary: Создание заявки
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string, example: "+1234567890" }
+                subject: { type: string }
+                message: { type: string }
+                attachments[]:
+                  type: array
+                  items: { type: string, format: binary }
+              required: [name,email,phone,subject,message]
+      responses:
+        '201': { description: Created }
+        '422': { description: Validation error }
+        '429': { description: Too Many Requests }
+  /api/tickets/statistics:
+    get:
+      summary: Статистика заявок (сутки/неделя/месяц)
+      responses:
+        '200': { description: OK }
